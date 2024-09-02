@@ -1,0 +1,137 @@
+import * as cheerio from "cheerio";
+import { MongoClient } from "mongodb";
+import {
+  createDocument,
+  connectToCluster,
+  isDuplicateNews,
+} from "../database/databaseOperations.js";
+
+import { fetchXmlFromRssFeed, getHtml, generateUUID } from "../utils/index.js";
+
+import { JSDOM } from "jsdom";
+
+let mongoClient;
+
+export async function drivesparkMain() {
+  const rssLinks = [
+    "https://malayalam.drivespark.com/rss/feeds/drivespark-malayalam-fb.xml",
+    "https://malayalam.drivespark.com/rss/feeds/malayalam-two-wheelers-fb.xml",
+  ];
+  async function processRssLink(rssLink) {
+    try {
+      const xmlConvertedToJson = await fetchXmlFromRssFeed(rssLink);
+      console.log(`XML FETCHING COMPLETED for ${rssLink}`);
+      if (xmlConvertedToJson) {
+        await loopThroughEachNews(xmlConvertedToJson);
+      }
+    } catch (error) {
+      console.error(`Error processing ${rssLink}: ${error.message}`);
+    }
+  }
+
+  for (const rssLink of rssLinks) {
+    await processRssLink(rssLink);
+  }
+}
+
+export async function loopThroughEachNews(jsonObjectString) {
+  console.log("loopThroughEachNews");
+  const jsonObj = JSON.parse(jsonObjectString);
+  if (
+    jsonObj !== null &&
+    typeof jsonObj === "object" &&
+    !Array.isArray(jsonObj)
+  ) {
+    console.log("Valid JSON");
+  } else {
+    console.log("Invalid JSON, the json obj is of type", typeof jsonObj);
+  }
+
+  const items = [jsonObj?.html?.body?.div?.[0]?.rss?.channel?.item[0]];
+  if (!Array.isArray(jsonObj?.html?.body?.div?.[0]?.rss?.channel?.item)) {
+    console.log("Item reference:", items);
+    throw new Error('Invalid JSON object or missing "item" array.');
+  }
+
+  const uri = process.env.DB_URI;
+  console.log({ uri });
+  mongoClient = await connectToCluster(uri);
+  console.log("Connected to DB from DriveSpark");
+
+  let successCount = 0;
+  let failCount = 0;
+
+  try {
+    mongoClient = new MongoClient(uri);
+    const db = mongoClient.db("NewsAppTestDB");
+    const collection = db.collection("newsAppTestTable");
+
+    for (let item of items) {
+      if (!(await isDuplicateNews(collection, item.link))) {
+        const newsDesc = await fetchNewsDescription(item.link);
+        const isValidNews = validateNewsDescriptionAndCreateDocument(newsDesc);
+        if (isValidNews) {
+          console.log("Inside isValidNews");
+          successCount++;
+          const newsToInsert = createDocumentToInsert(item, newsDesc);
+          await createDocument(collection, newsToInsert);
+        } else {
+          failCount++;
+          if (failCount >= 5) {
+            throw new Error("Something went wrong in DriveSpark flow");
+          }
+        }
+      }
+    }
+  } finally {
+    console.log("DB Connection Closed");
+    mongoClient.close();
+  }
+}
+
+async function fetchNewsDescription(htmlLink) {
+  console.log(
+    "DriveSpark :: fetchNewsDescription :: fetchNewsDescription::htmlLink",
+    htmlLink
+  );
+  const newsDescription = await getHtml(htmlLink);
+  const htmlLoader = cheerio.load(newsDescription);
+  //   const articleContent = htmlLoader("#article_normal_content");
+  //   const newsDesc = articleContent
+  //     .find("p")
+  //     .map((i, el) => $(el).text())
+  //     .get()
+  //     .join(" ");
+  const articleContent = htmlLoader(".oi-article-rt p")
+    .map((i, el) => htmlLoader(el).text())
+    .get();
+  const articleContentString = articleContent.join("\n\n");
+  //console.log("NewsDescription:: ", articleContentString);
+  return articleContentString;
+}
+
+async function validateNewsDescriptionAndCreateDocument(newsDesc, item) {
+  if (newsDesc.length > 100) {
+    // Add additional Validations here
+    return true;
+  }
+  return false;
+}
+
+function createDocumentToInsert(item, newsDesc) {
+  //console.log("Inside createDocumentToInsert", item);
+  const uuid = generateUUID();
+  const newsToInsert = {
+    Id: uuid,
+    title: item.title,
+    description: newsDesc,
+    link: item.link,
+    category: "Automobile",
+    pubDate: item.pubDate,
+    creator: item["dc:creator"],
+    srcImageUrl: item["media:content"]?.url || "No Image URL",
+    newsProvider: "DriveSpark",
+    language: "Malayalam",
+  };
+  return newsToInsert;
+}
