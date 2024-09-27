@@ -9,8 +9,9 @@ import { config } from "dotenv";
 import { logger } from "./utils/logger.js";
 import { deleteOldNews } from "./database/databaseOperations.js";
 config();
-
+console.log("NewsApp :: Application Started");
 cron.schedule("*/5 * * * *", async () => {
+  console.log("Running the cron job for news collection");
   try {
     await news18Main();
     await drivesparkMain();
@@ -23,6 +24,8 @@ cron.schedule("*/5 * * * *", async () => {
 });
 
 cron.schedule("0 0 * * *", () => {
+  console.log("Running the cron job for news collection");
   logger.info("Running the daily job to delete old news...");
   deleteOldNews();
 });
+console.log("NewsApp :: Reached end of index file");
