@@ -65,6 +65,7 @@ export async function fetchXmlFromRssFeed(url) {
 export async function getHtml(url) {
   try {
     const browser = await puppeteer.launch({
+      executablePath: "/usr/bin/chromium-browser",
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
     const page = await browser.newPage();

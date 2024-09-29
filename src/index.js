@@ -10,7 +10,7 @@ import { logger } from "./utils/logger.js";
 import { deleteOldNews } from "./database/databaseOperations.js";
 config();
 console.log("NewsApp :: Application Started");
-cron.schedule("*/5 * * * *", async () => {
+cron.schedule("*/1 * * * *", async () => {
   console.log("Running the cron job for news collection");
   try {
     await news18Main();
