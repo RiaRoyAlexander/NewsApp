@@ -58,6 +58,38 @@ export async function getDatabaseCollection(database, table, newsProvider) {
   return collection;
 }
 
+// export async function deleteOldNews() {
+//   try {
+//     const collection = await getDatabaseCollection(
+//       process.env.DB_NAME,
+//       process.env.NEWS_HUB,
+//       "DELETE"
+//     );
+
+//     // Calculate the date 2 days ago from now
+//     const twoDaysAgo = new Date();
+//     twoDaysAgo.setDate(twoDaysAgo.getDate() - 30);
+
+//     // Define a function to parse pubDate
+//     const parsePubDate = (dateStr) => {
+//       return parse(dateStr, "EEE, dd MMM yyyy HH:mm:ss xx", new Date());
+//     };
+
+//     // Delete news where pubDate is older than 2 days
+//     const result = await collection.deleteMany({
+//       pubDate: {
+//         $lt: twoDaysAgo.toISOString(),
+//       },
+//     });
+
+//     logger.info(`${result.deletedCount} news items deleted`);
+//   } catch (error) {
+//     logger.error(`Error deleting old news: ${error.message}`);
+//   } finally {
+//     await client.close();
+//   }
+// }
+
 export async function deleteOldNews() {
   try {
     const collection = await getDatabaseCollection(
@@ -66,19 +98,13 @@ export async function deleteOldNews() {
       "DELETE"
     );
 
-    // Calculate the date 2 days ago from now
-    const twoDaysAgo = new Date();
-    twoDaysAgo.setDate(twoDaysAgo.getDate() - 30);
+    // Calculate the timestamp for 7 days ago
+    const sevenDaysAgoTimestamp = Date.now() - 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 
-    // Define a function to parse pubDate
-    const parsePubDate = (dateStr) => {
-      return parse(dateStr, "EEE, dd MMM yyyy HH:mm:ss xx", new Date());
-    };
-
-    // Delete news where pubDate is older than 2 days
+    // Delete news where pubDateTimestamp is older than 7 days
     const result = await collection.deleteMany({
-      pubDate: {
-        $lt: twoDaysAgo.toISOString(),
+      pubDateTimestamp: {
+        $lt: sevenDaysAgoTimestamp,
       },
     });
 

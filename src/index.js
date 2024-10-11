@@ -24,7 +24,7 @@ cron.schedule("*/1 * * * *", async () => {
 });
 
 cron.schedule("0 0 * * *", () => {
-  console.log("Running the cron job for news collection");
+  console.log("Running the cron job for news deletion");
   logger.info("Running the daily job to delete old news...");
   deleteOldNews();
 });

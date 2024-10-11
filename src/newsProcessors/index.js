@@ -102,6 +102,15 @@ export function createDocumentToInsert(
   category,
   language
 ) {
+  const pubDateTimestamp = Date.parse(item.pubDate);
+  const currentTimestamp = Date.now();
+  const sevenDaysInMillis = 7 * 24 * 60 * 60 * 1000;
+
+  // If the pubDate is older than 7 days, do not insert (return null or handle it accordingly)
+  if (currentTimestamp - pubDateTimestamp > sevenDaysInMillis) {
+    return null;
+  }
+
   const uuid = generateUUID();
   return {
     Id: uuid,
@@ -110,6 +119,7 @@ export function createDocumentToInsert(
     link: item.link,
     category: category || item.category,
     pubDate: item.pubDate,
+    pubDateTimestamp: Date.parse(item.pubDate),
     srcImageUrl:
       item["media:content"]?.url || item.enclosure?.url || "No Image URL",
     newsProvider: newsProvider,
